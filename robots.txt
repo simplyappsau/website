@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://simplyapps.com.au/sitemap.xml
