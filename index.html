@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Simply Apps | An Australian app studio</title>
-  <meta name="description" content="Simply Apps is an independent Australian app studio in Pymble, NSW, a business name of QA Advisers Pty Ltd. Our first app is Simply Receipts, a receipt keeper for Australian businesses.">
+  <meta name="description" content="Simply Apps is an independent Australian app studio in Pymble, NSW, a business name of QA Advisers Pty Ltd. Our apps include Simply Receipts, a receipt keeper for Australian businesses, and Simply Invoice, coming soon.">
   <link rel="canonical" href="https://simplyapps.com.au/">
   <link rel="icon" href="/assets/favicon.ico" sizes="any">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <meta property="og:title" content="Simply Apps | An Australian app studio">
-  <meta property="og:description" content="Simply Apps is an independent Australian app studio in Pymble, NSW, a business name of QA Advisers Pty Ltd. Our first app is Simply Receipts, a receipt keeper for Australian businesses.">
+  <meta property="og:description" content="Simply Apps is an independent Australian app studio in Pymble, NSW, a business name of QA Advisers Pty Ltd. Our apps include Simply Receipts, a receipt keeper for Australian businesses, and Simply Invoice, coming soon.">
   <meta property="og:image" content="https://simplyapps.com.au/assets/simply-apps-icon-512.png">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Simply Apps">
@@ -26,7 +26,23 @@
       <nav aria-label="Primary">
         <ul>
           <li><a href="/" aria-current="page">Home</a></li>
-          <li><a href="/simply-receipts/">Simply Receipts</a></li>
+          <li class="nav-dropdown">
+            <button type="button" class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="nav-apps-menu" id="nav-apps-button">Apps <span class="nav-dropdown-caret" aria-hidden="true"></span></button>
+            <ul class="nav-dropdown-menu" id="nav-apps-menu">
+              <li>
+                <a href="/simply-receipts/">
+                  <span class="nav-item-title">Simply Receipts</span>
+                  <span class="nav-item-sub">Receipt keeper for Australian businesses</span>
+                </a>
+              </li>
+              <li>
+                <a href="/simply-invoice/">
+                  <span class="nav-item-title">Simply Invoice <span class="nav-soon">Coming soon</span></span>
+                  <span class="nav-item-sub">GST-ready invoicing for sole traders</span>
+                </a>
+              </li>
+            </ul>
+          </li>
           <li><a href="/about/">About</a></li>
           <li><a href="/support/">Support</a></li>
         </ul>
@@ -45,7 +61,7 @@
     <section class="section" aria-labelledby="apps-heading">
       <div class="wrap">
         <h2 id="apps-heading">Our apps</h2>
-        <div class="app-list">
+        <div class="app-list split">
           <a class="app-card feature" href="/simply-receipts/">
             <img class="app-icon" src="/assets/simply-apps-icon-512.png" width="96" height="96" alt="">
             <div>
@@ -53,6 +69,15 @@
               <h3>Simply Receipts</h3>
               <p>An Australian receipt keeper. Snap a receipt and Simply Receipts detects the total and merchant, then saves and names it for you in monthly folders. Share a month with your accountant by web link, and keep several companies in one account. Your first 10 receipts are free, then choose a monthly or yearly plan.</p>
               <span class="more">Learn about Simply Receipts &rarr;</span>
+            </div>
+          </a>
+          <a class="app-card feature" href="/simply-invoice/">
+            <div class="app-mark" aria-hidden="true">SI</div>
+            <div>
+              <span class="badge">Coming soon</span>
+              <h3>Simply Invoice</h3>
+              <p>A simple invoicing app for Australian sole traders and small businesses. Create and send GST-ready invoices in seconds, keep track of what is paid and what is still outstanding, and export a clean record for your accountant.</p>
+              <span class="more">Learn about Simply Invoice &rarr;</span>
             </div>
           </a>
         </div>
@@ -73,7 +98,7 @@
       <div class="wrap">
         <div class="contact-box">
           <h2>Get in touch</h2>
-          <p>Questions about Simply Apps or Simply Receipts? Email <a href="mailto:support@simplyapps.com.au">support@simplyapps.com.au</a> or visit our <a href="/support/">support page</a>.</p>
+          <p>Questions about Simply Apps, Simply Receipts or Simply Invoice? Email <a href="mailto:support@simplyapps.com.au">support@simplyapps.com.au</a> or visit our <a href="/support/">support page</a>.</p>
         </div>
       </div>
     </section>
@@ -95,9 +120,10 @@
         </p>
       </div>
       <div>
-        <p class="footer-head">Simply Receipts</p>
+        <p class="footer-head">Apps</p>
         <p class="footer-links stack">
-          <a href="/simply-receipts/">About the app</a>
+          <a href="/simply-receipts/">Simply Receipts</a>
+          <a href="/simply-invoice/">Simply Invoice</a>
           <a href="/simply-receipts/privacy/">Privacy policy</a>
           <a href="/terms/">Terms of use</a>
         </p>
@@ -105,5 +131,6 @@
     </div>
     <div class="wrap"><p class="copyright">&copy; 2026 QA Advisers Pty Ltd trading as Simply Apps. All rights reserved.</p></div>
   </footer>
+  <script src="/js/nav.js" defer></script>
 </body>
 </html>
