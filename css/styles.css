@@ -301,8 +301,8 @@ button:focus-visible {
 .button:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
 .button.ghost { background: transparent; color: var(--navy); border-color: var(--navy); }
 .button.ghost:hover { background: var(--navy); color: #fff; }
-.app-card.feature { display: grid; gap: 1.2rem; align-items: start; }
-.app-icon { width: 96px; height: 96px; border-radius: 22%; box-shadow: 0 2px 8px rgba(8,32,64,.12); }
+.app-card.feature { display: grid; gap: 1.2rem; align-items: start; align-content: start; }
+.app-icon { display: block; width: 96px; height: 96px; flex: none; border-radius: 22%; box-shadow: 0 2px 8px rgba(8,32,64,.12); }
 .app-icon.large { width: 128px; height: 128px; }
 .app-hero { display: grid; gap: 1.5rem; align-items: center; }
 .app-hero h1 { font-size: clamp(2rem, 5vw, 3rem); margin: 0 0 0.75rem; }
@@ -460,7 +460,34 @@ code { background: #efe7dc; padding: 0.05rem 0.35rem; border-radius: 0.3rem; fon
   flex: none;
 }
 .app-mark.large { width: 128px; height: 128px; font-size: 2.1rem; }
+/* Side-by-side app cards: keep icon, badge, title and CTA aligned
+   across columns. The shorter card used to stretch its grid rows
+   (default align-content: stretch), which opened a larger gap under
+   the Simply Invoice icon. */
+.app-list.split .app-card.feature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.2rem;
+}
+.app-list.split .app-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+.app-list.split .app-card-body .badge {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+.app-list.split .app-card-body .more {
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
 @media (min-width: 56rem) {
   .app-list.split { grid-template-columns: 1fr 1fr; }
-  .app-list.split .app-card.feature { grid-template-columns: 1fr; }
+  .app-list.split .app-card.feature { grid-template-columns: none; }
 }
