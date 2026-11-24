@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shared receipts | Simply Receipts</title>
+  <meta name="description" content="A read-only Simply Receipts share. You do not need an account to view or download these receipts.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <meta property="og:title" content="Shared receipts | Simply Receipts">
+  <meta property="og:description" content="A read-only Simply Receipts share. You do not need an account to view or download these receipts.">
+  <meta property="og:image" content="https://simplyapps.com.au/assets/simply-apps-icon-512.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Simply Apps">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .share-page { padding-bottom: 3rem; }
+    .share-status, .share-error {
+      background: var(--paper-card);
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      padding: 1.4rem 1.5rem;
+      margin: 0 0 1.5rem;
+    }
+    .share-error { border-color: #f0cbbd; background: #fff4ef; }
+    .share-error h2, .share-status h2 { margin: 0 0 0.45rem; font-size: 1.25rem; }
+    .share-error p, .share-status p { margin: 0; color: var(--muted); }
+    .share-spinner {
+      display: inline-block;
+      width: 1.1rem;
+      height: 1.1rem;
+      margin-right: 0.55rem;
+      border: 2px solid var(--line);
+      border-top-color: var(--coral);
+      border-radius: 50%;
+      vertical-align: -0.15rem;
+      animation: share-spin 0.7s linear infinite;
+    }
+    @keyframes share-spin { to { transform: rotate(360deg); } }
+    .share-card {
+      background: var(--paper-card);
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      padding: 1.3rem 1.4rem 1.4rem;
+      box-shadow: 0 1px 0 rgba(8, 32, 64, 0.04);
+      margin: 0 0 1.25rem;
+    }
+    .share-card .kicker { margin-bottom: 0.45rem; }
+    .share-card h1 { margin: 0 0 0.35rem; font-size: clamp(1.6rem, 4vw, 2.1rem); }
+    .share-summary { margin: 0 0 1rem; color: var(--muted); }
+    .share-stats {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+      margin: 0 0 1.15rem;
+    }
+    .share-stat {
+      background: var(--paper);
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.85rem;
+    }
+    .share-stat .label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.15rem;
+    }
+    .share-stat .value { font-weight: 700; color: var(--navy); }
+    .share-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+    .share-actions .button { border: 0; cursor: pointer; font: inherit; }
+    .share-actions .button[disabled] { opacity: 0.65; cursor: wait; }
+    .share-note { margin: 0.85rem 0 0; font-size: 0.92rem; color: var(--muted); }
+    .share-month { margin: 1.6rem 0 0.7rem; font-size: 1.2rem; }
+    .share-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    }
+    .share-receipt {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      background: var(--paper-card);
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      overflow: hidden;
+      padding: 0;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      width: 100%;
+    }
+    .share-receipt:hover { border-color: var(--coral); color: inherit; }
+    .share-thumb {
+      display: block;
+      width: 100%;
+      height: 12.5rem;
+      object-fit: cover;
+      background: #efe7dc;
+    }
+    .share-thumb-fallback {
+      display: grid;
+      place-items: center;
+      height: 12.5rem;
+      background: #efe7dc;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .share-receipt-body { padding: 0.85rem 1rem 1rem; }
+    .share-receipt-name { margin: 0 0 0.25rem; font-weight: 700; color: var(--navy); word-break: break-word; }
+    .share-receipt-meta { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    .share-lightbox[hidden] { display: none; }
+    .share-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(8, 32, 64, 0.82);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+    .share-lightbox-dialog {
+      width: min(100%, 56rem);
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      background: var(--paper-card);
+      border-radius: 1rem;
+      padding: 1rem 1rem 1.2rem;
+      position: relative;
+    }
+    .share-lightbox-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin: 0 0 0.75rem;
+    }
+    .share-lightbox-tools button,
+    .share-lightbox-tools a.button {
+      font: inherit;
+      cursor: pointer;
+    }
+    .share-lightbox-image-wrap {
+      background: #1a1a1a;
+      border-radius: 0.75rem;
+      overflow: auto;
+      max-height: min(70vh, 46rem);
+      text-align: center;
+    }
+    .share-lightbox-image-wrap img {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+      cursor: zoom-in;
+    }
+    .share-lightbox-image-wrap.is-zoomed img {
+      max-width: none;
+      width: 160%;
+      cursor: zoom-out;
+    }
+    .share-lightbox-meta { margin: 0.9rem 0 0; }
+    .share-lightbox-meta h2 { margin: 0 0 0.3rem; font-size: 1.15rem; word-break: break-word; }
+    .share-lightbox-meta p { margin: 0; color: var(--muted); }
+    .share-zip-msg { margin: 0.65rem 0 0; color: var(--muted); font-size: 0.95rem; }
+    .share-zip-msg.is-error { color: #9b2c1a; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="logo" href="/">
+        <img src="/assets/simply-apps-logo-transparent.png" width="280" height="79" alt="Simply Apps">
+      </a>
+      <nav aria-label="Primary">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/simply-receipts/">Simply Receipts</a></li>
+          <li><a href="/about/">About</a></li>
+          <li><a href="/support/">Support</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="share-page">
+    <div class="wrap page-head" style="padding-bottom:0;">
+      <p class="kicker">Simply Receipts</p>
+    </div>
+    <div class="wrap" id="share-root"></div>
+  </main>
+  <div class="share-lightbox" id="lightbox" hidden>
+    <div class="share-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
+      <div class="share-lightbox-tools">
+        <button type="button" class="button ghost" id="lightbox-zoom">Zoom in</button>
+        <a class="button ghost" id="lightbox-open" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        <button type="button" class="button ghost" id="lightbox-download">Download</button>
+        <button type="button" class="button" id="lightbox-close">Close</button>
+      </div>
+      <div class="share-lightbox-image-wrap" id="lightbox-image-wrap"></div>
+      <div class="share-lightbox-meta">
+        <h2 id="lightbox-title"></h2>
+        <p id="lightbox-details"></p>
+      </div>
+    </div>
+  </div>
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <p><img src="/assets/simply-apps-logo-white.png" width="200" height="56" alt="Simply Apps"></p>
+        <p>Simply Apps is a business name of QA Advisers Pty Ltd, ABN 58 674 800 518.</p>
+        <p>Unit 15, 895 Pacific Hwy, Pymble NSW 2073, Australia</p>
+        <p>Email: <a href="mailto:support@simplyapps.com.au">support@simplyapps.com.au</a></p>
+      </div>
+      <div>
+        <p class="footer-head">Company</p>
+        <p class="footer-links stack">
+          <a href="/">Home</a>
+          <a href="/about/">About</a>
+          <a href="/support/">Support &amp; contact</a>
+        </p>
+      </div>
+      <div>
+        <p class="footer-head">Simply Receipts</p>
+        <p class="footer-links stack">
+          <a href="/simply-receipts/">About the app</a>
+          <a href="/simply-receipts/privacy/">Privacy policy</a>
+          <a href="/terms/">Terms of use</a>
+        </p>
+      </div>
+    </div>
+    <div class="wrap"><p class="copyright">&copy; 2026 QA Advisers Pty Ltd trading as Simply Apps. All rights reserved.</p></div>
+  </footer>
+  <script>
+    (function () {
+      var SUPABASE_URL = "https://pfngwgzznfjgvlhhsjnz.supabase.co";
+      var SUPABASE_ANON_KEY = "sb_publishable__W_91P9GzP5RpNG_l-lSlQ_8EAKDced";
+      var root = document.getElementById("share-root");
+      var lightbox = document.getElementById("lightbox");
+      var lightboxWrap = document.getElementById("lightbox-image-wrap");
+      var lightboxTitle = document.getElementById("lightbox-title");
+      var lightboxDetails = document.getElementById("lightbox-details");
+      var lightboxOpen = document.getElementById("lightbox-open");
+      var lightboxZoom = document.getElementById("lightbox-zoom");
+      var lightboxDownload = document.getElementById("lightbox-download");
+      var lightboxClose = document.getElementById("lightbox-close");
+      var lastFocus = null;
+      var currentReceipt = null;
+      var currentPayload = null;
+      var currentToken = "";
+
+      function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        if (attrs) {
+          Object.keys(attrs).forEach(function (key) {
+            var value = attrs[key];
+            if (value == null || value === false) return;
+            if (key === "className") node.className = value;
+            else if (key === "text") node.textContent = value;
+            else if (key === "htmlFor") node.htmlFor = value;
+            else if (key.slice(0, 2) === "on" && typeof value === "function") node.addEventListener(key.slice(2).toLowerCase(), value);
+            else node.setAttribute(key, value === true ? "" : String(value));
+          });
+        }
+        (children || []).forEach(function (child) {
+          if (child == null) return;
+          node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+        });
+        return node;
+      }
+
+      function clear(node) {
+        while (node.firstChild) node.removeChild(node.firstChild);
+      }
+
+      function readToken() {
+        var hash = (location.hash || "").replace(/^#/, "").trim();
+        if (hash) {
+          try { return decodeURIComponent(hash); } catch (e) { return hash; }
+        }
+        var params = new URLSearchParams(location.search);
+        var query = params.get("t") || params.get("token");
+        if (query) {
+          try { history.replaceState(null, "", "/rk/share/#" + encodeURIComponent(query)); } catch (e) {}
+          return query;
+        }
+        return "";
+      }
+
+      function monthLabel(yearMonth) {
+        if (!/^\d{4}-\d{2}$/.test(yearMonth || "")) return yearMonth || "";
+        var date = new Date(yearMonth + "-15T00:00:00Z");
+        if (Number.isNaN(date.getTime())) return yearMonth;
+        return new Intl.DateTimeFormat("en-AU", {
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC"
+        }).format(date);
+      }
+
+      function formatDay(day) {
+        if (!day) return "";
+        var iso = String(day).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+        var date = new Date(iso + "T00:00:00Z");
+        if (Number.isNaN(date.getTime())) return "";
+        return new Intl.DateTimeFormat("en-AU", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC"
+        }).format(date);
+      }
+
+      function formatExpiry(iso) {
+        if (!iso) return "No expiry";
+        var date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return "No expiry";
+        return "Expires " + new Intl.DateTimeFormat("en-AU", {
+          dateStyle: "medium",
+          timeZone: "Australia/Sydney"
+        }).format(date);
+      }
+
+      function formatMoney(value) {
+        var amount = Number(value);
+        if (!Number.isFinite(amount)) return "—";
+        return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(amount);
+      }
+
+      function moneyNumber(value) {
+        var amount = Number(value);
+        return Number.isFinite(amount) ? amount : 0;
+      }
+
+      function safeFilename(name, fallback) {
+        var cleaned = String(name || fallback || "receipt").replace(/[\/\\?%*:|"<>]/g, "-").replace(/\s+/g, " ").trim();
+        return cleaned || fallback || "receipt";
+      }
+
+      function zipName(payload) {
+        var company = safeFilename((payload.companyName || "receipts").replace(/\s+/g, "-"), "receipts");
+        if (payload.scope === "folder" && payload.yearMonth) {
+          return "Simply-Receipts-" + company + "-" + payload.yearMonth + ".zip";
+        }
+        if (payload.scope === "selection") {
+          return "Simply-Receipts-" + company + "-selection.zip";
+        }
+        return "Simply-Receipts-" + company + "-all.zip";
+      }
+
+      function shareHeadline(payload) {
+        if (payload.scope === "selection") {
+          return payload.label || "Selected receipts";
+        }
+        if (payload.scope === "folder" && payload.yearMonth) {
+          return payload.label || monthLabel(payload.yearMonth);
+        }
+        return payload.label || "All receipts";
+      }
+
+      function errorCopy(code) {
+        if (code === "expired") return { title: "This share link has expired", body: "Ask the owner to send a new link if you still need these receipts." };
+        if (code === "revoked") return { title: "This share link has been revoked", body: "The owner has turned this link off. Ask them to send a new one if you still need access." };
+        if (code === "not found") return { title: "This share link could not be found", body: "Check that the whole address was copied correctly, or ask the owner to send the link again." };
+        if (code === "token is required" || code === "missing") return { title: "This share link is missing a token", body: "Open the full link you were sent, including the characters after /rk/s/." };
+        return { title: "This share link could not be opened", body: "Check your connection and try again. If it still fails, ask the owner to send a new link." };
+      }
+
+      function showStatus(kind, title, body, spinning) {
+        clear(root);
+        var box = el("div", { className: kind === "error" ? "share-error" : "share-status" });
+        var heading = el("h2");
+        if (spinning) heading.appendChild(el("span", { className: "share-spinner", "aria-hidden": "true" }));
+        heading.appendChild(document.createTextNode(title));
+        box.appendChild(heading);
+        if (body) box.appendChild(el("p", { text: body }));
+        root.appendChild(box);
+        document.title = (kind === "error" ? title : "Shared receipts") + " | Simply Receipts";
+      }
+
+      function invokeFunction(name, body) {
+        return fetch(SUPABASE_URL + "/functions/v1/" + name, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: "Bearer " + SUPABASE_ANON_KEY
+          },
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          body: JSON.stringify(body)
+        }).then(function (res) {
+          return res.text().then(function (text) {
+            var data = {};
+            if (text) {
+              try { data = JSON.parse(text); } catch (e) { data = { error: "unexpected response" }; }
+            }
+            return { ok: res.ok, status: res.status, data: data };
+          });
+        });
+      }
+
+      function receiptMonth(row) {
+        var day = row && row.filedOn ? String(row.filedOn).slice(0, 10) : "";
+        return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day.slice(0, 7) : "";
+      }
+
+      function groupReceipts(receipts) {
+        var months = [];
+        var map = {};
+        receipts.forEach(function (row) {
+          var key = receiptMonth(row) || "other";
+          if (!map[key]) {
+            map[key] = [];
+            months.push(key);
+          }
+          map[key].push(row);
+        });
+        var unique = months.filter(function (key) { return key !== "other"; });
+        if (unique.length <= 1 && months.length <= 1) {
+          return [{ label: null, rows: receipts }];
+        }
+        return months.map(function (key) {
+          return {
+            label: key === "other" ? "Other" : monthLabel(key),
+            rows: map[key]
+          };
+        });
+      }
+
+      function addThumb(button, row) {
+        if (row.signedUrl) {
+          var img = el("img", {
+            className: "share-thumb",
+            alt: "",
+            src: row.signedUrl,
+            loading: "lazy",
+            referrerpolicy: "no-referrer"
+          });
+          img.addEventListener("error", function () {
+            if (img.parentNode) {
+              img.parentNode.replaceChild(el("div", { className: "share-thumb-fallback", text: "Preview unavailable" }), img);
+            }
+          });
+          button.appendChild(img);
+        } else {
+          button.appendChild(el("div", { className: "share-thumb-fallback", text: "No image" }));
+        }
+      }
+
+      function receiptCard(row) {
+        var button = el("button", { type: "button", className: "share-receipt" });
+        addThumb(button, row);
+        var metaBits = [row.merchant || "", formatMoney(row.total), formatDay(row.filedOn)].filter(Boolean);
+        button.appendChild(el("div", { className: "share-receipt-body" }, [
+          el("p", { className: "share-receipt-name", text: row.displayName || "Receipt" }),
+          el("p", { className: "share-receipt-meta", text: metaBits.join(" · ") })
+        ]));
+        button.addEventListener("click", function () { openLightbox(row); });
+        return button;
+      }
+
+      function closeLightbox() {
+        lightbox.hidden = true;
+        lightboxWrap.classList.remove("is-zoomed");
+        lightboxZoom.textContent = "Zoom in";
+        clear(lightboxWrap);
+        currentReceipt = null;
+        if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
+      }
+
+      function openLightbox(row) {
+        currentReceipt = row;
+        lastFocus = document.activeElement;
+        clear(lightboxWrap);
+        lightboxWrap.classList.remove("is-zoomed");
+        lightboxZoom.textContent = "Zoom in";
+        if (row.signedUrl) {
+          var img = el("img", { src: row.signedUrl, alt: row.displayName || "Receipt", referrerpolicy: "no-referrer" });
+          img.addEventListener("click", toggleZoom);
+          lightboxWrap.appendChild(img);
+          lightboxOpen.href = row.signedUrl;
+          lightboxOpen.removeAttribute("aria-disabled");
+        } else {
+          lightboxWrap.appendChild(el("div", { className: "share-thumb-fallback", text: "No image" }));
+          lightboxOpen.href = "#";
+        }
+        lightboxTitle.textContent = row.displayName || "Receipt";
+        lightboxDetails.textContent = [row.merchant || "", formatMoney(row.total), formatDay(row.filedOn)].filter(Boolean).join(" · ");
+        lightbox.hidden = false;
+        lightboxClose.focus();
+      }
+
+      function toggleZoom() {
+        var zoomed = lightboxWrap.classList.toggle("is-zoomed");
+        lightboxZoom.textContent = zoomed ? "Zoom out" : "Zoom in";
+      }
+
+      function downloadBlob(url, filename) {
+        return fetch(url, { mode: "cors", credentials: "omit", referrerPolicy: "no-referrer" }).then(function (res) {
+          if (!res.ok) throw new Error("download failed");
+          return res.blob();
+        }).then(function (blob) {
+          var objectUrl = URL.createObjectURL(blob);
+          var link = el("a", { href: objectUrl, download: filename });
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 1500);
+        });
+      }
+
+      function downloadReceipt(row) {
+        var name = safeFilename(row.displayName, "receipt");
+        if (!row.signedUrl) return Promise.reject(new Error("no file"));
+        return downloadBlob(row.signedUrl, name).catch(function () {
+          window.open(row.signedUrl, "_blank", "noopener,noreferrer");
+        });
+      }
+
+      function renderShare(payload) {
+        currentPayload = payload;
+        var receipts = Array.isArray(payload.receipts) ? payload.receipts : [];
+        var total = receipts.reduce(function (sum, row) { return sum + moneyNumber(row.total); }, 0);
+        var company = payload.companyName || "Shared receipts";
+        document.title = company + " | Simply Receipts";
+        clear(root);
+
+        var zipMsg = el("p", { className: "share-zip-msg", hidden: true });
+        var zipButton = el("button", { type: "button", className: "button" }, ["Download all as ZIP"]);
+
+        function setZipState(busy, message, isError) {
+          zipButton.disabled = !!busy;
+          clear(zipButton);
+          if (busy) zipButton.appendChild(el("span", { className: "share-spinner", "aria-hidden": "true" }));
+          zipButton.appendChild(document.createTextNode(busy ? "Preparing ZIP…" : "Download all as ZIP"));
+          if (message) {
+            zipMsg.hidden = false;
+            zipMsg.textContent = message;
+            zipMsg.classList.toggle("is-error", !!isError);
+          } else {
+            zipMsg.hidden = true;
+            zipMsg.textContent = "";
+            zipMsg.classList.remove("is-error");
+          }
+        }
+
+        zipButton.addEventListener("click", function () {
+          if (!currentToken) return;
+          setZipState(true, "Building a zip of these receipts…", false);
+          invokeFunction("zip-download", {
+            token: currentToken,
+            scope: payload.yearMonth ? "month" : "all"
+          }).then(function (result) {
+            var body = result.data || {};
+            if (!result.ok || body.error || !body.signedUrl) {
+              throw new Error(body.error || "Could not create a zip.");
+            }
+            var filename = zipName(payload);
+            return downloadBlob(body.signedUrl, filename).catch(function () {
+              window.location.assign(body.signedUrl);
+            });
+          }).then(function () {
+            setZipState(false, "Your download should start shortly.", false);
+          }).catch(function (err) {
+            var message = err && err.message ? err.message : "Could not create a zip.";
+            if (message === "expired") message = "This share link has expired, so the zip could not be created.";
+            if (message === "revoked") message = "This share link has been revoked, so the zip could not be created.";
+            if (message === "not found" || message === "no receipts") message = "No receipts were available to zip.";
+            setZipState(false, message, true);
+          });
+        });
+
+        var countLabel = receipts.length === 1 ? "1 receipt" : receipts.length + " receipts";
+        var card = el("section", { className: "share-card" }, [
+          el("p", { className: "kicker", text: "Shared receipts" }),
+          el("h1", { text: company }),
+          el("p", { className: "share-summary", text: shareHeadline(payload) }),
+          el("div", { className: "share-stats" }, [
+            el("div", { className: "share-stat" }, [
+              el("span", { className: "label", text: "Receipts" }),
+              el("span", { className: "value", text: countLabel })
+            ]),
+            el("div", { className: "share-stat" }, [
+              el("span", { className: "label", text: "Total" }),
+              el("span", { className: "value", text: formatMoney(total) })
+            ]),
+            el("div", { className: "share-stat" }, [
+              el("span", { className: "label", text: "Access" }),
+              el("span", { className: "value", text: formatExpiry(payload.expiresAt) })
+            ])
+          ]),
+          el("div", { className: "share-actions" }, receipts.length ? [zipButton] : []),
+          zipMsg,
+          el("p", { className: "share-note", text: "You can view these receipts and download them, including as a ZIP. You do not need a Simply Receipts account. This link is read-only and can be revoked by the owner." })
+        ]);
+        root.appendChild(card);
+
+        if (!receipts.length) {
+          root.appendChild(el("div", { className: "share-status" }, [
+            el("h2", { text: "No receipts in this share" }),
+            el("p", { text: "The link is valid, but there are no receipts to show right now." })
+          ]));
+          return;
+        }
+
+        groupReceipts(receipts).forEach(function (group) {
+          if (group.label) root.appendChild(el("h2", { className: "share-month", text: group.label }));
+          var grid = el("div", { className: "share-grid" });
+          group.rows.forEach(function (row) { grid.appendChild(receiptCard(row)); });
+          root.appendChild(grid);
+        });
+      }
+
+      function load() {
+        var token = readToken();
+        currentToken = token;
+        currentPayload = null;
+        if (!token) {
+          var missing = errorCopy("missing");
+          showStatus("error", missing.title, missing.body, false);
+          return;
+        }
+        showStatus("status", "Loading shared receipts…", "This usually takes a moment.", true);
+        invokeFunction("share-resolve", { token: token }).then(function (result) {
+          var body = result.data || {};
+          if (!result.ok || body.error) {
+            var copy = errorCopy(body.error || "network");
+            showStatus("error", copy.title, copy.body, false);
+            return;
+          }
+          renderShare(body);
+        }).catch(function () {
+          var copy = errorCopy("network");
+          showStatus("error", copy.title, "Check your connection and try again.", false);
+        });
+      }
+
+      lightbox.addEventListener("click", function (event) {
+        if (event.target === lightbox) closeLightbox();
+      });
+      lightboxClose.addEventListener("click", closeLightbox);
+      lightboxZoom.addEventListener("click", toggleZoom);
+      lightboxDownload.addEventListener("click", function () {
+        if (currentReceipt) downloadReceipt(currentReceipt);
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !lightbox.hidden) {
+          event.preventDefault();
+          closeLightbox();
+        }
+      });
+      window.addEventListener("hashchange", load);
+      load();
+    })();
+  </script>
+</body>
+</html>
