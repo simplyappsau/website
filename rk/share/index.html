@@ -170,6 +170,69 @@
     .share-lightbox-meta p { margin: 0; color: var(--muted); }
     .share-zip-msg { margin: 0.65rem 0 0; color: var(--muted); font-size: 0.95rem; }
     .share-zip-msg.is-error { color: #9b2c1a; }
+
+    .share-month-picker {
+      margin-top: 1.2rem;
+      padding-top: 1.15rem;
+      border-top: 1px solid var(--line);
+    }
+    .share-month-picker h2 {
+      margin: 0 0 0.3rem;
+      font-size: 1.08rem;
+    }
+    .share-picker-hint {
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .share-month-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 0.7rem;
+    }
+    .share-month-tools .button {
+      border-width: 1px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.9rem;
+    }
+    .share-month-list {
+      list-style: none;
+      margin: 0 0 0.9rem;
+      padding: 0;
+      display: grid;
+      gap: 0.4rem;
+    }
+    .share-month-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.7rem;
+      align-items: center;
+      background: var(--paper);
+      border: 1px solid transparent;
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.85rem;
+      cursor: pointer;
+    }
+    .share-month-item:hover { border-color: var(--line); }
+    .share-month-item:has(input:focus-visible) {
+      outline: 3px solid var(--coral);
+      outline-offset: 2px;
+    }
+    .share-month-item input {
+      width: 1.15rem;
+      height: 1.15rem;
+      accent-color: var(--navy);
+      margin: 0;
+    }
+    .share-month-name { font-weight: 700; color: var(--navy); }
+    .share-month-meta {
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: right;
+    }
+    .share-month-picker .button[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .share-month-picker .button[disabled][data-busy="true"] { cursor: wait; }
   </style>
 </head>
 <body>
@@ -372,6 +435,38 @@
         return "Simply-Receipts-" + company + "-all.zip";
       }
 
+      function selectedZipName(payload, months) {
+        var company = safeFilename((payload.companyName || "receipts").replace(/\s+/g, "-"), "receipts");
+        var dated = months.filter(function (month) { return /^\d{4}-\d{2}$/.test(month); }).slice().sort();
+        if (dated.length === 1 && dated.length === months.length) {
+          return "Simply-Receipts-" + company + "-" + dated[0] + ".zip";
+        }
+        if (dated.length > 0 && dated.length <= 3 && dated.length === months.length) {
+          return "Simply-Receipts-" + company + "-" + dated.join("_") + ".zip";
+        }
+        return "Simply-Receipts-" + company + "-selected-months.zip";
+      }
+
+      function monthShortLabel(yearMonth) {
+        if (!yearMonth || yearMonth === "undated") return "Undated";
+        if (!/^\d{4}-\d{2}$/.test(yearMonth)) return yearMonth;
+        var date = new Date(yearMonth + "-15T00:00:00Z");
+        if (Number.isNaN(date.getTime())) return yearMonth;
+        return new Intl.DateTimeFormat("en-AU", {
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC"
+        }).format(date);
+      }
+
+      function zipErrorMessage(err) {
+        var message = err && err.message ? err.message : "Could not create a zip.";
+        if (message === "expired") return "This share link has expired, so the zip could not be created.";
+        if (message === "revoked") return "This share link has been revoked, so the zip could not be created.";
+        if (message === "not found" || message === "no receipts") return "No receipts were available to zip.";
+        return message;
+      }
+
       function shareHeadline(payload) {
         if (payload.scope === "selection") {
           return payload.label || "Selected receipts";
@@ -424,23 +519,43 @@
         });
       }
 
+      function receiptDay(row) {
+        var raw = (row && (row.receipt_date || row.receiptDate || row.filedOn)) || "";
+        var day = String(raw).slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : "";
+      }
+
       function receiptMonth(row) {
-        var day = row && row.filedOn ? String(row.filedOn).slice(0, 10) : "";
-        return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day.slice(0, 7) : "";
+        var day = receiptDay(row);
+        return day ? day.slice(0, 7) : "";
+      }
+
+      function collectMonths(receipts) {
+        var map = {};
+        receipts.forEach(function (row) {
+          var key = receiptMonth(row) || "undated";
+          if (!map[key]) map[key] = { key: key, rows: [] };
+          map[key].rows.push(row);
+        });
+        return Object.keys(map).sort(function (a, b) {
+          if (a === "undated") return 1;
+          if (b === "undated") return -1;
+          return a < b ? 1 : a > b ? -1 : 0;
+        }).map(function (key) { return map[key]; });
       }
 
       function groupReceipts(receipts) {
         var months = [];
         var map = {};
         receipts.forEach(function (row) {
-          var key = receiptMonth(row) || "other";
+          var key = receiptMonth(row) || "undated";
           if (!map[key]) {
             map[key] = [];
             months.push(key);
           }
           map[key].push(row);
         });
-        var unique = months.filter(function (key) { return key !== "other"; });
+        var unique = months.filter(function (key) { return key !== "undated"; });
         if (unique.length <= 1 && months.length <= 1) {
           return [{ label: null, rows: receipts }];
         }
@@ -475,7 +590,7 @@
       function receiptCard(row) {
         var button = el("button", { type: "button", className: "share-receipt" });
         addThumb(button, row);
-        var metaBits = [row.merchant || "", formatMoney(row.total), formatDay(row.filedOn)].filter(Boolean);
+        var metaBits = [row.merchant || "", formatMoney(row.total), formatDay(receiptDay(row))].filter(Boolean);
         button.appendChild(el("div", { className: "share-receipt-body" }, [
           el("p", { className: "share-receipt-name", text: row.displayName || "Receipt" }),
           el("p", { className: "share-receipt-meta", text: metaBits.join(" · ") })
@@ -510,7 +625,7 @@
           lightboxOpen.href = "#";
         }
         lightboxTitle.textContent = row.displayName || "Receipt";
-        lightboxDetails.textContent = [row.merchant || "", formatMoney(row.total), formatDay(row.filedOn)].filter(Boolean).join(" · ");
+        lightboxDetails.textContent = [row.merchant || "", formatMoney(row.total), formatDay(receiptDay(row))].filter(Boolean).join(" · ");
         lightbox.hidden = false;
         lightboxClose.focus();
       }
@@ -552,51 +667,122 @@
 
         var zipMsg = el("p", { className: "share-zip-msg", hidden: true });
         var zipButton = el("button", { type: "button", className: "button" }, ["Download all as ZIP"]);
+        var selectedMsg = el("p", { className: "share-zip-msg", hidden: true });
+        var selectedButton = el("button", { type: "button", className: "button ghost" });
+        var monthChecks = [];
+        var zipBusy = false;
 
-        function setZipState(busy, message, isError) {
-          zipButton.disabled = !!busy;
-          clear(zipButton);
-          if (busy) zipButton.appendChild(el("span", { className: "share-spinner", "aria-hidden": "true" }));
-          zipButton.appendChild(document.createTextNode(busy ? "Preparing ZIP…" : "Download all as ZIP"));
-          if (message) {
-            zipMsg.hidden = false;
-            zipMsg.textContent = message;
-            zipMsg.classList.toggle("is-error", !!isError);
-          } else {
-            zipMsg.hidden = true;
-            zipMsg.textContent = "";
-            zipMsg.classList.remove("is-error");
+        function selectedGroups() {
+          return monthChecks.filter(function (item) { return item.input.checked; });
+        }
+
+        function selectedLabel() {
+          var groups = selectedGroups();
+          if (!groups.length) return "Download selected as ZIP (no months selected)";
+          var monthCount = groups.length;
+          var receiptCount = groups.reduce(function (sum, item) { return sum + item.rows.length; }, 0);
+          var monthText = monthCount === 1 ? "1 month" : monthCount + " months";
+          var receiptText = receiptCount === 1 ? "1 receipt" : receiptCount + " receipts";
+          return "Download selected as ZIP (" + monthText + " · " + receiptText + ")";
+        }
+
+        function paintSelectedButton() {
+          var groups = selectedGroups();
+          selectedButton.disabled = zipBusy || groups.length === 0;
+          if (!zipBusy) {
+            selectedButton.removeAttribute("data-busy");
+            clear(selectedButton);
+            selectedButton.appendChild(document.createTextNode(selectedLabel()));
           }
         }
 
-        zipButton.addEventListener("click", function () {
-          if (!currentToken) return;
-          setZipState(true, "Building a zip of these receipts…", false);
-          invokeFunction("zip-download", {
-            token: currentToken,
-            scope: payload.yearMonth ? "month" : "all"
-          }).then(function (result) {
-            var body = result.data || {};
-            if (!result.ok || body.error || !body.signedUrl) {
-              throw new Error(body.error || "Could not create a zip.");
+        function setMessage(node, message, isError) {
+          if (message) {
+            node.hidden = false;
+            node.textContent = message;
+            node.classList.toggle("is-error", !!isError);
+          } else {
+            node.hidden = true;
+            node.textContent = "";
+            node.classList.remove("is-error");
+          }
+        }
+
+        function setZipBusy(which, busy, message, isError) {
+          zipBusy = !!busy;
+          zipButton.disabled = zipBusy;
+          if (which === "all") {
+            clear(zipButton);
+            if (busy) {
+              zipButton.appendChild(el("span", { className: "share-spinner", "aria-hidden": "true" }));
+              zipButton.appendChild(document.createTextNode("Preparing ZIP…"));
+              setMessage(zipMsg, message || "Building a zip of these receipts…", false);
+            } else {
+              zipButton.appendChild(document.createTextNode("Download all as ZIP"));
+              setMessage(zipMsg, message, isError);
             }
-            var filename = zipName(payload);
-            return downloadBlob(body.signedUrl, filename).catch(function () {
-              window.location.assign(body.signedUrl);
+          } else if (busy) {
+            selectedButton.disabled = true;
+            selectedButton.setAttribute("data-busy", "true");
+            clear(selectedButton);
+            selectedButton.appendChild(el("span", { className: "share-spinner", "aria-hidden": "true" }));
+            selectedButton.appendChild(document.createTextNode("Preparing ZIP…"));
+            setMessage(selectedMsg, message || "Building a zip of the selected months…", false);
+          } else {
+            selectedButton.removeAttribute("data-busy");
+            setMessage(selectedMsg, message, isError);
+          }
+          if (!(which === "selected" && busy)) paintSelectedButton();
+          else zipButton.disabled = true;
+        }
+
+        function startZip(kind, body, filename, pendingMessage) {
+          if (!currentToken || zipBusy) return;
+          setZipBusy(kind, true, pendingMessage, false);
+          invokeFunction("zip-download", body).then(function (result) {
+            var data = result.data || {};
+            if (!result.ok || data.error || !data.signedUrl) {
+              throw new Error(data.error || "Could not create a zip.");
+            }
+            return downloadBlob(data.signedUrl, filename).catch(function () {
+              window.location.assign(data.signedUrl);
             });
           }).then(function () {
-            setZipState(false, "Your download should start shortly.", false);
+            setZipBusy(kind, false, "Your download should start shortly.", false);
           }).catch(function (err) {
-            var message = err && err.message ? err.message : "Could not create a zip.";
-            if (message === "expired") message = "This share link has expired, so the zip could not be created.";
-            if (message === "revoked") message = "This share link has been revoked, so the zip could not be created.";
-            if (message === "not found" || message === "no receipts") message = "No receipts were available to zip.";
-            setZipState(false, message, true);
+            setZipBusy(kind, false, zipErrorMessage(err), true);
           });
+        }
+
+        zipButton.addEventListener("click", function () {
+          startZip(
+            "all",
+            { token: currentToken, scope: payload.yearMonth ? "month" : "all" },
+            zipName(payload),
+            "Building a zip of these receipts…"
+          );
+        });
+
+        selectedButton.addEventListener("click", function () {
+          var groups = selectedGroups();
+          if (!groups.length) return;
+          var months = groups.map(function (item) { return item.key; });
+          var ids = [];
+          groups.forEach(function (item) {
+            item.rows.forEach(function (row) {
+              if (row.id && ids.indexOf(row.id) === -1) ids.push(row.id);
+            });
+          });
+          startZip(
+            "selected",
+            { token: currentToken, scope: "selection", receiptIds: ids },
+            selectedZipName(payload, months),
+            "Building a zip of the selected months…"
+          );
         });
 
         var countLabel = receipts.length === 1 ? "1 receipt" : receipts.length + " receipts";
-        var card = el("section", { className: "share-card" }, [
+        var cardChildren = [
           el("p", { className: "kicker", text: "Shared receipts" }),
           el("h1", { text: company }),
           el("p", { className: "share-summary", text: shareHeadline(payload) }),
@@ -613,12 +799,49 @@
               el("span", { className: "label", text: "Access" }),
               el("span", { className: "value", text: formatExpiry(payload.expiresAt) })
             ])
-          ]),
-          el("div", { className: "share-actions" }, receipts.length ? [zipButton] : []),
-          zipMsg,
-          el("p", { className: "share-note", text: "You can view these receipts and download them, including as a ZIP. You do not need a Simply Receipts account. This link is read-only and can be revoked by the owner." })
-        ]);
-        root.appendChild(card);
+          ])
+        ];
+        if (receipts.length) {
+          cardChildren.push(el("div", { className: "share-actions" }, [zipButton]));
+          cardChildren.push(zipMsg);
+          var monthGroups = collectMonths(receipts);
+          var list = el("ul", { className: "share-month-list" });
+          monthGroups.forEach(function (group, index) {
+            var checkboxId = "share-month-" + index;
+            var input = el("input", { type: "checkbox", id: checkboxId, value: group.key });
+            var receiptText = group.rows.length === 1 ? "1 receipt" : group.rows.length + " receipts";
+            var subtotal = group.rows.reduce(function (sum, row) { return sum + moneyNumber(row.total); }, 0);
+            var item = el("label", { className: "share-month-item", htmlFor: checkboxId }, [
+              input,
+              el("span", { className: "share-month-name", text: monthShortLabel(group.key) }),
+              el("span", { className: "share-month-meta", text: receiptText + " · " + formatMoney(subtotal) })
+            ]);
+            input.addEventListener("change", paintSelectedButton);
+            list.appendChild(item);
+            monthChecks.push({ key: group.key, rows: group.rows, input: input });
+          });
+          var selectAll = el("button", { type: "button", className: "button ghost" }, ["Select all"]);
+          var clearAll = el("button", { type: "button", className: "button ghost" }, ["Clear"]);
+          selectAll.addEventListener("click", function () {
+            monthChecks.forEach(function (item) { item.input.checked = true; });
+            paintSelectedButton();
+          });
+          clearAll.addEventListener("click", function () {
+            monthChecks.forEach(function (item) { item.input.checked = false; });
+            paintSelectedButton();
+          });
+          paintSelectedButton();
+          cardChildren.push(el("div", { className: "share-month-picker" }, [
+            el("h2", { text: "Select months to download" }),
+            el("p", { className: "share-picker-hint", text: "Choose one or more months, or use Download all as ZIP to get every receipt in this share." }),
+            el("div", { className: "share-month-tools" }, [selectAll, clearAll]),
+            list,
+            selectedButton,
+            selectedMsg
+          ]));
+        }
+        cardChildren.push(el("p", { className: "share-note", text: "You can view these receipts and download them, including as a ZIP. You do not need a Simply Receipts account. This link is read-only and can be revoked by the owner." }));
+        root.appendChild(el("section", { className: "share-card" }, cardChildren));
 
         if (!receipts.length) {
           root.appendChild(el("div", { className: "share-status" }, [
